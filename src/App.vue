@@ -84,7 +84,7 @@ export default {
     city: "",
     showCityDesc: false,
     showCard: false,
-    loading: false,
+    loading: null,
     weather: {
       temp: '',
       main: '',
@@ -93,7 +93,7 @@ export default {
   }),
   methods: {
     getData() {
-      this.loading = true
+      this.loading = 'white'
       fetch(`https://api.openweathermap.org/data/2.5/weather?q=${this.city}&appid=4d30afa58f6f935d861edecad3639cda`)
         .then(data => data.json())
         .then(data => {
@@ -101,7 +101,7 @@ export default {
           this.weather.main = data.weather[0].main
           this.weather.desc = data.weather[0].description
           setTimeout(() => {
-            this.loading = false
+            this.loading = null
             this.showCard = true
           },500)
 
