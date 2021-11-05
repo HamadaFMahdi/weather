@@ -15,7 +15,8 @@
           background-color="indigo lighten-1"
           dark
           :loading="loading"
-          @keyup.enter="getData"
+          @keyup.enter="getWeather"
+          :error-messages="errorMessage"
         ></v-text-field>
       </v-col>
     </v-row>
@@ -31,8 +32,9 @@
           dark
         >
           <v-img
-            src="https://cdn.vuetifyjs.com/images/cards/sunshine.jpg"
+            :src="imageURL"
             height="200px"
+            :alt="`This is an image of ${city}`"
           ></v-img>
 
           <v-card-title>
@@ -59,7 +61,7 @@
               <v-divider></v-divider>
 
               <v-card-text>
-                London is a great place (generally speaking).
+                {{cityDesc}}
               </v-card-text>
             </div>
           </v-expand-transition>
@@ -89,11 +91,15 @@ export default {
       temp: '',
       main: '',
       desc: '',
-    }
+    },
+    errorMessage: '',
+    imageURL: '',
+    cityDesc: ''
   }),
   methods: {
-    getData() {
-      this.loading = 'white'
+    getWeather() {
+      this.errorMessage = ''
+      this.loading = 'pink'
       fetch(`https://api.openweathermap.org/data/2.5/weather?q=${this.city}&appid=4d30afa58f6f935d861edecad3639cda`)
         .then(data => data.json())
         .then(data => {
@@ -105,10 +111,47 @@ export default {
             this.showCard = true
           },500)
 
+          // fetch the image
+          this.getImage()
+          // fetch the desc
+          this.getDesc()
         })
-    }
+        .catch(err => {
+          console.log(`This error occured: ${err}`)
+          this.errorMessage = 'Please try again. If this error continues please contact us.'
+          this.loading = null
+        })
+    },
+    getImage() {
+      fetch(`https://api.unsplash.com/search/photos/?client_id=#&query=${this.city}&content_filter=high`)
+        .then(data => data.json())
+        .then(data => {
+          let numResults = data.results.length
+          let randNum = Math.floor(Math.random() * numResults)
+          this.imageURL = data.results[randNum].urls.small
+        })
+        .catch(err => {
+          console.log(err)
+          this.errorMessage = 'Unable to load image, please try again later.'
+        })
+
+    },
+    getDesc() {
+      fetch(`https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&exintro&explaintext&redirects=1&origin=*&titles=${this.city}`)
+        .then(data => data.json())
+        .then(data => {
+          let pages = data.query.pages
+          let id = Object.keys(pages)[0]
+          this.cityDesc = pages[id].extract
+        })
+        .catch(err => {
+          console.log(err)
+          this.errorMessage = 'Unable to load city description.'
+        })
+    },
   }
 };
+
 </script>
 
 <style>
