@@ -12,6 +12,7 @@
           clearable
           prepend-inner-icon="mdi-domain"
           append-icon="mdi-map-marker"
+          @click:append="getGeoLocation"
           background-color="indigo lighten-1"
           dark
           :loading="loading"
@@ -48,6 +49,9 @@
           <v-card-actions>
             <v-spacer>
             </v-spacer>
+            <v-btn icon @click="saveCity">
+              <v-icon>mdi-heart</v-icon>
+            </v-btn>
             <v-btn
               icon
               @click="showCityDesc = !showCityDesc"
@@ -61,7 +65,12 @@
               <v-divider></v-divider>
 
               <v-card-text>
-                {{cityDesc}}
+                {{ cityDesc }}
+                <br>
+                <br>
+                <v-btn small rounded color="white">
+                   <a :href="cityWikiLink" target="_blank"> Read more </a>
+                </v-btn>
               </v-card-text>
             </div>
           </v-expand-transition>
@@ -94,18 +103,28 @@ export default {
     },
     errorMessage: '',
     imageURL: '',
-    cityDesc: ''
+    cityDesc: '',
+    cityWikiLink: ''
   }),
   methods: {
-    getWeather() {
+    getWeather(lat, long) {
       this.errorMessage = ''
       this.loading = 'pink'
-      fetch(`https://api.openweathermap.org/data/2.5/weather?q=${this.city}&appid=4d30afa58f6f935d861edecad3639cda`)
+      let link;
+      if(long) {
+        link = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${long}&appid=4d30afa58f6f935d861edecad3639cda`
+      } else {
+        link = `https://api.openweathermap.org/data/2.5/weather?q=${this.city}&appid=4d30afa58f6f935d861edecad3639cda`
+      }
+      fetch(link)
         .then(data => data.json())
         .then(data => {
           this.weather.temp = (data.main.temp - 273.15).toFixed(2)
           this.weather.main = data.weather[0].main
           this.weather.desc = data.weather[0].description
+          if(long) {
+            this.city = data.name
+          }
           setTimeout(() => {
             this.loading = null
             this.showCard = true
@@ -123,7 +142,7 @@ export default {
         })
     },
     getImage() {
-      fetch(`https://api.unsplash.com/search/photos/?client_id=#&query=${this.city}&content_filter=high`)
+      fetch(`https://api.unsplash.com/search/photos/?client_id=ADD_UNSPLASH_API&query=${this.city}&content_filter=high`)
         .then(data => data.json())
         .then(data => {
           let numResults = data.results.length
@@ -142,13 +161,58 @@ export default {
         .then(data => {
           let pages = data.query.pages
           let id = Object.keys(pages)[0]
-          this.cityDesc = pages[id].extract
+          let desc = pages[id].extract
+          if(desc.length > 250) {
+            desc = this.shortenDesc(desc)
+          }
+          this.cityWikiLink = 'https://en.wikipedia.org/?curid=' + id
+          this.cityDesc = desc
         })
         .catch(err => {
           console.log(err)
           this.errorMessage = 'Unable to load city description.'
         })
     },
+    shortenDesc(desc) {
+      return desc.slice(0, 250) + '...'
+    },
+    getGeoLocation() {
+      let options = {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
+      };
+
+      let success = (pos) => {
+        let crd = pos.coords;
+        this.getWeather(crd.latitude, crd.longitude)
+      }
+
+      let error = (err) => {
+        console.log(`ERROR(${err.code}): ${err.message}`);
+        this.errorMessage = 'Unable to get location.'
+        this.loading = null
+      }
+      this.loading = 'pink'
+      navigator.geolocation.getCurrentPosition(success, error, options);
+    },
+    saveCity() {
+      let cities = localStorage.getItem('cities');
+      if(cities) {
+        let citiesList = cities.split(',')
+        if(citiesList.length == 5) {
+          console.log('already 5')
+          return 
+        }
+        if(citiesList.includes(this.city)) {
+          console.log('already in there')
+          return 
+          // to do handle case where cities is capitalised
+        }
+        citiesList.push(this.city)
+        localStorage.setItem('cities', citiesList);
+      }
+    }
   }
 };
 
