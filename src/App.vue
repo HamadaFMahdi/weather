@@ -39,7 +39,7 @@
           ></v-img>
 
           <v-card-title>
-            {{city}}
+            {{cityFormatted}}
           </v-card-title>
 
           <v-card-subtitle>
@@ -78,6 +78,63 @@
 
       </v-col>
     </v-row>
+    <v-row class="px-2">
+      <v-col
+        v-for="favCity in favouritedCities"
+        :key="favCity"        
+        cols="3"
+      >
+        <v-card
+          class="mx-auto"
+          max-width="344"
+          color="indigo lighten-1"
+          dark
+        >
+          <v-img
+            src=""
+            height="200px"
+            :alt="`This is an image of ${favCity}`"
+          ></v-img>
+
+          <v-card-title>
+            <!-- {{cityFormatted}} -->
+          </v-card-title>
+
+          <v-card-subtitle>
+            <!-- {{weather.temp}}°C - {{weather.main}}, {{weather.desc}} -->
+          </v-card-subtitle>
+
+          <v-card-actions>
+            <v-spacer>
+            </v-spacer>
+            <v-btn icon @click="saveCity">
+              <v-icon>mdi-heart</v-icon>
+            </v-btn>
+            <v-btn
+              icon
+              @click="showCityDesc = !showCityDesc"
+            >
+              <!-- <v-icon>{{ showCityDesc ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon> -->
+            </v-btn>
+          </v-card-actions>
+
+          <v-expand-transition>
+            <div v-show="showCityDesc">
+              <v-divider></v-divider>
+
+              <v-card-text>
+                <!-- {{ cityDesc }} -->
+                <br>
+                <br>
+                <v-btn small rounded color="white">
+                   <!-- <a :href="cityWikiLink" target="_blank"> Read more </a> -->
+                </v-btn>
+              </v-card-text>
+            </div>
+          </v-expand-transition>
+        </v-card>
+      </v-col>
+    </v-row>
   </v-app>
 </template>
 
@@ -104,9 +161,37 @@ export default {
     errorMessage: '',
     imageURL: '',
     cityDesc: '',
-    cityWikiLink: ''
+    cityWikiLink: '',
+    favouritedCities: []
   }),
+  mounted: function() {
+    console.log("I was mounted")
+    this.getfavouritedCities()
+  },
+  computed: {
+    cityFormatted() {
+      let cityTrimmed = this.city.trim()
+      if(cityTrimmed) {
+        return cityTrimmed[0].toUpperCase() + cityTrimmed.slice(1).toLowerCase()
+      }
+      return ""
+    },
+  },
   methods: {
+    getfavouritedCities() {
+      let cities = localStorage.getItem('cities')
+      if(cities) {
+        // 
+        this.favouritedCities = cities.split(',')
+        // [
+        //   {cityFormatted: 'London', weather: {temp: '', main: '', desc: '',}, imgURL: '', ... },
+        //   {cityFormatted: 'Berlin', weather: {temp: '', main: '', desc: '',}, imgURL: '', ... },
+        //   {cityFormatted: 'Tokyo', weather: {temp: '', main: '', desc: '',}, imgURL: '', ... },
+        // ]
+      } else {
+        this.favouritedCities = []
+      }
+    },
     getWeather(lat, long) {
       this.errorMessage = ''
       this.loading = 'pink'
@@ -114,7 +199,7 @@ export default {
       if(long) {
         link = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${long}&appid=4d30afa58f6f935d861edecad3639cda`
       } else {
-        link = `https://api.openweathermap.org/data/2.5/weather?q=${this.city}&appid=4d30afa58f6f935d861edecad3639cda`
+        link = `https://api.openweathermap.org/data/2.5/weather?q=${this.cityFormatted}&appid=4d30afa58f6f935d861edecad3639cda`
       }
       fetch(link)
         .then(data => data.json())
@@ -142,7 +227,7 @@ export default {
         })
     },
     getImage() {
-      fetch(`https://api.unsplash.com/search/photos/?client_id=ADD_UNSPLASH_API&query=${this.city}&content_filter=high`)
+      fetch(`https://api.unsplash.com/search/photos/?client_id=API_KEY&query=${this.cityFormatted}&content_filter=high`)
         .then(data => data.json())
         .then(data => {
           let numResults = data.results.length
@@ -156,7 +241,7 @@ export default {
 
     },
     getDesc() {
-      fetch(`https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&exintro&explaintext&redirects=1&origin=*&titles=${this.city}`)
+      fetch(`https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&exintro&explaintext&redirects=1&origin=*&titles=${this.cityFormatted}`)
         .then(data => data.json())
         .then(data => {
           let pages = data.query.pages
@@ -200,18 +285,21 @@ export default {
       let cities = localStorage.getItem('cities');
       if(cities) {
         let citiesList = cities.split(',')
-        if(citiesList.length == 5) {
-          console.log('already 5')
+        if(citiesList.length === 4) {
+          console.log('already 4')
           return 
         }
-        if(citiesList.includes(this.city)) {
+        let cityFormatted = this.cityFormatted
+        if(citiesList.includes(cityFormatted)) {
           console.log('already in there')
           return 
-          // to do handle case where cities is capitalised
         }
-        citiesList.push(this.city)
+        citiesList.push(cityFormatted)
         localStorage.setItem('cities', citiesList);
+      } else {
+        localStorage.setItem('cities', [this.cityFormatted])
       }
+      this.getfavouritedCities()
     }
   }
 };
