@@ -16,7 +16,7 @@
           background-color="indigo lighten-1"
           dark
           :loading="loading"
-          @keyup.enter="getWeather"
+          @keyup.enter="getWeatherMain"
           :error-messages="errorMessage"
         ></v-text-field>
       </v-col>
@@ -25,6 +25,19 @@
       <v-col 
         cols="12"
       >
+
+        <!-- Init State -->
+        <v-skeleton-loader
+          v-show="!showCard"
+          class="mx-auto"
+          elevation="6"
+          width="344"
+          height="350"
+          type="card"
+        >
+        </v-skeleton-loader>
+
+        <!-- Filled state -->
         <v-card
           v-show="showCard"
           class="mx-auto"
@@ -79,9 +92,17 @@
       </v-col>
     </v-row>
     <v-row class="px-2">
+      <v-col v-if="favouritedCities.length" cols="12" style="text-align: center;">
+        <v-divider class="my-3"></v-divider>
+        Your favourited cities:
+      </v-col>
+      <v-col v-else cols="12" style="text-align: center;">
+        <v-divider class="my-3"></v-divider>
+        Your favourited cities will appear here
+      </v-col>
       <v-col
         v-for="favCity in favouritedCities"
-        :key="favCity"        
+        :key="favCity.cityFormatted"        
         cols="3"
       >
         <v-card
@@ -91,17 +112,17 @@
           dark
         >
           <v-img
-            src=""
+            :src="favCity.imgURL"
             height="200px"
-            :alt="`This is an image of ${favCity}`"
+            :alt="`This is an image of ${favCity.cityFormatted}`"
           ></v-img>
 
           <v-card-title>
-            <!-- {{cityFormatted}} -->
+            {{favCity.cityFormatted}}
           </v-card-title>
 
           <v-card-subtitle>
-            <!-- {{weather.temp}}°C - {{weather.main}}, {{weather.desc}} -->
+            {{favCity.weather.temp}}°C - {{favCity.weather.main}}, {{favCity.weather.desc}}
           </v-card-subtitle>
 
           <v-card-actions>
@@ -123,11 +144,11 @@
               <v-divider></v-divider>
 
               <v-card-text>
-                <!-- {{ cityDesc }} -->
+                {{ favCity.cityDesc }}
                 <br>
                 <br>
                 <v-btn small rounded color="white">
-                   <!-- <a :href="cityWikiLink" target="_blank"> Read more </a> -->
+                   <a :href="favCity.cityWikiLink" target="_blank"> Read more </a>
                 </v-btn>
               </v-card-text>
             </div>
@@ -182,31 +203,58 @@ export default {
       let cities = localStorage.getItem('cities')
       if(cities) {
         // 
-        this.favouritedCities = cities.split(',')
-        // [
-        //   {cityFormatted: 'London', weather: {temp: '', main: '', desc: '',}, imgURL: '', ... },
-        //   {cityFormatted: 'Berlin', weather: {temp: '', main: '', desc: '',}, imgURL: '', ... },
-        //   {cityFormatted: 'Tokyo', weather: {temp: '', main: '', desc: '',}, imgURL: '', ... },
+        cities = cities.split(',')
+        let allData = []
+        for(let city of cities) {
+          let cityData = {
+            cityFormatted: city
+          }
+          // run all API calls
+          this.getWeather(false, false, city)
+            .then(data => {
+              cityData.weather = {
+                temp: (data.main.temp - 273.15).toFixed(2),
+                main: data.weather[0].main,
+                desc: data.weather[0].description,
+              }
+
+              // add image and wiki apis
+
+              allData.push(cityData)
+
+            })
+        }
+        // this.favouritedCities = [
+        //   {cityFormatted: 'London', weather: {temp: '1', main: 'a', desc: 'd',}, cityDesc: 'a nice city', cityWikiLink: 'google.com', imgURL: 'https://i.insider.com/5b9137e10ce5f5b27e8b4a0c?width=1000&format=jpeg&auto=webp'},
+        //   {cityFormatted: 'Berlin', weather: {temp: '2', main: 'b', desc: 'e',}, cityDesc: 'a nice city', cityWikiLink: 'google.com', imgURL: 'https://i.insider.com/5b9137e10ce5f5b27e8b4a0c?width=1000&format=jpeg&auto=webp'},
+        //   {cityFormatted: 'Tokyo', weather: {temp: '3', main: 'c', desc: 'f',}, cityDesc: 'a nice city', cityWikiLink: 'google.com', imgURL: 'https://i.insider.com/5b9137e10ce5f5b27e8b4a0c?width=1000&format=jpeg&auto=webp'},
+        //   {cityFormatted: 'Aden', weather: {temp: '3', main: 'c', desc: 'f',}, cityDesc: 'a nice city', cityWikiLink: 'google.com', imgURL: 'https://i.insider.com/5b9137e10ce5f5b27e8b4a0c?width=1000&format=jpeg&auto=webp'},
         // ]
+        this.favouritedCities = allData
       } else {
         this.favouritedCities = []
       }
     },
-    getWeather(lat, long) {
-      this.errorMessage = ''
-      this.loading = 'pink'
+    getWeather(lat, long, cityFormatted) {
       let link;
       if(long) {
         link = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${long}&appid=4d30afa58f6f935d861edecad3639cda`
       } else {
-        link = `https://api.openweathermap.org/data/2.5/weather?q=${this.cityFormatted}&appid=4d30afa58f6f935d861edecad3639cda`
+        link = `https://api.openweathermap.org/data/2.5/weather?q=${cityFormatted}&appid=4d30afa58f6f935d861edecad3639cda`
       }
-      fetch(link)
+      return fetch(link)
         .then(data => data.json())
+    },
+    getWeatherMain(lat, long) {
+      this.errorMessage = ''
+      this.loading = 'pink'
+      this.getWeather(lat, long, this.cityFormatted)
         .then(data => {
-          this.weather.temp = (data.main.temp - 273.15).toFixed(2)
-          this.weather.main = data.weather[0].main
-          this.weather.desc = data.weather[0].description
+          this.weather = {
+                temp: (data.main.temp - 273.15).toFixed(2),
+                main: data.weather[0].main,
+                desc: data.weather[0].description,
+          }
           if(long) {
             this.city = data.name
           }
@@ -214,7 +262,7 @@ export default {
             this.loading = null
             this.showCard = true
           },500)
-
+    
           // fetch the image
           this.getImage()
           // fetch the desc
@@ -225,6 +273,7 @@ export default {
           this.errorMessage = 'Please try again. If this error continues please contact us.'
           this.loading = null
         })
+
     },
     getImage() {
       fetch(`https://api.unsplash.com/search/photos/?client_id=API_KEY&query=${this.cityFormatted}&content_filter=high`)
@@ -270,7 +319,7 @@ export default {
 
       let success = (pos) => {
         let crd = pos.coords;
-        this.getWeather(crd.latitude, crd.longitude)
+        this.getWeatherMain(crd.latitude, crd.longitude)
       }
 
       let error = (err) => {
