@@ -133,14 +133,14 @@
             </v-btn>
             <v-btn
               icon
-              @click="showCityDesc = !showCityDesc"
+              @click="favCity.cityDescOpen = !favCity.cityDescOpen"
             >
-              <!-- <v-icon>{{ showCityDesc ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon> -->
+              <v-icon>{{ favCity.cityDescOpen ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
             </v-btn>
           </v-card-actions>
 
           <v-expand-transition>
-            <div v-show="showCityDesc">
+            <div v-show="favCity.cityDescOpen">
               <v-divider></v-divider>
 
               <v-card-text>
@@ -207,7 +207,8 @@ export default {
         let allData = []
         for(let city of cities) {
           let cityData = {
-            cityFormatted: city
+            cityFormatted: city,
+            cityDescOpen: false
           }
           // run all API calls
           this.getWeather(false, false, city)
@@ -218,9 +219,17 @@ export default {
                 desc: data.weather[0].description,
               }
 
-              // add image and wiki apis
+              this.getImage(city)
+                .then(data => {
+                  cityData.imgURL = data
 
-              allData.push(cityData)
+                  this.getDesc(city)
+                    .then(data => {
+                      cityData.cityWikiLink = data[0]
+                      cityData.cityDesc = data[1]
+                      allData.push(cityData)
+                    })
+                })
 
             })
         }
@@ -264,9 +273,9 @@ export default {
           },500)
     
           // fetch the image
-          this.getImage()
+          this.getMainImage()
           // fetch the desc
-          this.getDesc()
+          this.getMainDesc()
         })
         .catch(err => {
           console.log(`This error occured: ${err}`)
@@ -275,22 +284,27 @@ export default {
         })
 
     },
-    getImage() {
-      fetch(`https://api.unsplash.com/search/photos/?client_id=API_KEY&query=${this.cityFormatted}&content_filter=high`)
+    getImage(city) {
+      return fetch(`https://api.unsplash.com/search/photos/?client_id=UNSPASH_API&query=${city}&content_filter=high`)
         .then(data => data.json())
         .then(data => {
           let numResults = data.results.length
           let randNum = Math.floor(Math.random() * numResults)
-          this.imageURL = data.results[randNum].urls.small
+          return data.results[randNum].urls.small
+        })
+    },
+    getMainImage() {
+      this.getImage(this.cityFormatted)
+        .then(data => {
+          this.imageURL = data
         })
         .catch(err => {
           console.log(err)
           this.errorMessage = 'Unable to load image, please try again later.'
         })
-
     },
-    getDesc() {
-      fetch(`https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&exintro&explaintext&redirects=1&origin=*&titles=${this.cityFormatted}`)
+    getDesc(city) {
+      return fetch(`https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&exintro&explaintext&redirects=1&origin=*&titles=${city}`)
         .then(data => data.json())
         .then(data => {
           let pages = data.query.pages
@@ -299,8 +313,14 @@ export default {
           if(desc.length > 250) {
             desc = this.shortenDesc(desc)
           }
-          this.cityWikiLink = 'https://en.wikipedia.org/?curid=' + id
-          this.cityDesc = desc
+          return ['https://en.wikipedia.org/?curid=' + id, desc]
+        })
+    },
+    getMainDesc() {
+      this.getDesc(this.cityFormatted)
+        .then((data)=>{
+          this.cityWikiLink = data[0]
+          this.cityDesc = data[1]
         })
         .catch(err => {
           console.log(err)
